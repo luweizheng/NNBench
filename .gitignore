@@ -1,10 +1,10 @@
 *tmp*
-param-models/output/*
+param-model/output/*
 
 # Ascend genernated files
-param-models/*/kernel_meta/*
-param-models/*/fusion_result.json
-param-models/*/check_result.tf.json
+param-model/*/kernel_meta/*
+param-model/*/fusion_result.json
+param-model/*/check_result.tf.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

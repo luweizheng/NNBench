@@ -123,7 +123,9 @@ def model_fn(features, labels, mode, params):
         optimizer = NPUDistributedOptimizer(optimizer)
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-
+    
+    tf.logging.info('enter tf.profiler function')
+    
     param_stats = tf.profiler.profile(
         tf.get_default_graph(),
         options=ProfileOptionBuilder.trainable_variables_parameter())
@@ -163,7 +165,7 @@ def model_fn(features, labels, mode, params):
 ProfileOptionBuilder = tf.profiler.ProfileOptionBuilder
 def main(unused_argv):
     tf.logging.set_verbosity(tf.logging.INFO)
-    print('TensorFlow version: ' + str(tf.__version__))
+    print('\nTensorFlow version: ' + str(tf.__version__))
 
     # for k,v in iter(tf.app.flags.FLAGS.flag_values_dict().items()):
     #     print("***%s: %s" % (k, v))

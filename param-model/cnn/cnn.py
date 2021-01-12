@@ -164,13 +164,15 @@ def main(unused_argv):
         run_config = NPURunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None
+            save_checkpoints_secs=None,
+            precision_mode="allow_mix_precision"
         )
     else:
         run_config = tf.estimator.RunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None
+            save_checkpoints_secs=None,
+            precision_mode="allow_mix_precision"
         )
 
     if FLAGS.platform == "npu":

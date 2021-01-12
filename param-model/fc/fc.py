@@ -159,6 +159,7 @@ def model_fn(features, labels, mode, params):
 
 ProfileOptionBuilder = tf.profiler.ProfileOptionBuilder
 def main(unused_argv):
+    del unused_argv
     tf.logging.set_verbosity(tf.logging.INFO)
     print('\nTensorFlow version: ' + str(tf.__version__))
 
@@ -166,12 +167,12 @@ def main(unused_argv):
     #     print("***%s: %s" % (k, v))
     if FLAGS.platform == "npu":
         session_config = tf.ConfigProto(allow_soft_placement=True,
-            log_device_placement=True)
+            log_device_placement=False)
     elif FLAGS.platform == "gpu":
         # with `allow_soft_placement=True` TensorFlow will automatically help us choose a device in case the specific one does not exist
         # with `log_divice_placement=True` we can see all the operations and tensors are mapped to which device
         session_config = tf.ConfigProto(allow_soft_placement=True, 
-            log_device_placement=True, gpu_options=tf.GPUOptions(allow_growth=True))
+            log_device_placement=False, gpu_options=tf.GPUOptions(allow_growth=True))
     model_dir = os.path.join(FLAGS.output_dir, "model_dir",
                 '-'.join(
                     ["layer_" + str(FLAGS.layer), "nodes_" + str(FLAGS.nodes_per_layer), 
@@ -189,7 +190,8 @@ def main(unused_argv):
         run_config = tf.estimator.RunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None
+            save_checkpoints_secs=None,
+            precision_mode="allow_mix_precision"
         )
 
     if FLAGS.platform == "npu":

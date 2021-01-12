@@ -23,16 +23,15 @@ export ASCEND_OPP_PATH=${ascend_toolkit_path}/opp
 export HCCL_CONNECT_TIMEOUT=600
 
 # user env
-export JOB_ID=123456789
+export JOB_ID=${currtime}
 
-device_id="0"
-export DEVICE_ID=0
+device_id="7"
+export DEVICE_ID=${device_id}
 
 device_count="1"
 export RANK_SIZE=1
 export RANK_INDEX=0
 
-pod_name=$3
 export RANK_ID="localhost-"currtime
 
 DEVICE_INDEX=$(( DEVICE_ID + RANK_INDEX * 8))
@@ -40,7 +39,7 @@ export DEVICE_INDEX=${DEVICE_INDEX}
 
 data_type="float32"
 platform="npu"
-outpath=${currentDir}/../output/fc_${platform}_${data_type}
+outpath=${currentDir}/../output/cnn_${platform}_${data_type}
 mkdir -p $outpath
 
 for layer in 64 # 32 64 128 256

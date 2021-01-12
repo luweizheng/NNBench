@@ -165,7 +165,8 @@ def main(unused_argv):
     # for k,v in iter(tf.app.flags.FLAGS.flag_values_dict().items()):
     #     print("***%s: %s" % (k, v))
     if FLAGS.platform == "npu":
-        session_config = tf.ConfigProto()
+        session_config = tf.ConfigProto(allow_soft_placement=True,
+            log_device_placement=True)
     elif FLAGS.platform == "gpu":
         # with `allow_soft_placement=True` TensorFlow will automatically help us choose a device in case the specific one does not exist
         # with `log_divice_placement=True` we can see all the operations and tensors are mapped to which device
@@ -181,7 +182,8 @@ def main(unused_argv):
         run_config = NPURunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None
+            save_checkpoints_secs=None,
+            precision_mode="allow_mix_precision"
         )
     else:
         run_config = tf.estimator.RunConfig(

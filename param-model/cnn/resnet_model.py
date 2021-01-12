@@ -72,18 +72,18 @@ def batch_norm_relu(inputs, is_training, relu=True, init_zero=False,
 
 
 def fixed_padding(inputs, kernel_size, data_format='channels_first'):
-  """Pads the input along the spatial dimensions independently of input size.
-  Args:
-    inputs: `Tensor` of size `[batch, channels, height, width]` or
-        `[batch, height, width, channels]` depending on `data_format`.
-    kernel_size: `int` kernel size to be used for `conv2d` or max_pool2d`
-        operations. Should be a positive integer.
-    data_format: `str` either "channels_first" for `[batch, channels, height,
-        width]` or "channels_last for `[batch, height, width, channels]`.
-  Returns:
-    A padded `Tensor` of the same `data_format` with size either intact
-    (if `kernel_size == 1`) or padded (if `kernel_size > 1`).
-  """
+    """Pads the input along the spatial dimensions independently of input size.
+    Args:
+        inputs: `Tensor` of size `[batch, channels, height, width]` or
+            `[batch, height, width, channels]` depending on `data_format`.
+        kernel_size: `int` kernel size to be used for `conv2d` or max_pool2d`
+            operations. Should be a positive integer.
+        data_format: `str` either "channels_first" for `[batch, channels, height,
+            width]` or "channels_last for `[batch, height, width, channels]`.
+    Returns:
+        A padded `Tensor` of the same `data_format` with size either intact
+        (if `kernel_size == 1`) or padded (if `kernel_size > 1`).
+    """
     pad_total = kernel_size - 1
     pad_beg = pad_total // 2
     pad_end = pad_total - pad_beg

@@ -11,7 +11,7 @@ import os
 import resnet_model
 
 # whether use NPU or not
-tf.flags.DEFINE_string("platform", "gpu", "which computing platform we are using")
+tf.flags.DEFINE_string("platform", "gpu", "which computing platform we are using, GPU/NPU")
 tf.flags.DEFINE_string("output_dir", "./", "All the output data should be written into this folder.")
 tf.flags.DEFINE_integer("iterations", 100,
                         "Number of iterations per training loop.")
@@ -26,7 +26,7 @@ tf.flags.DEFINE_integer("warmup_steps", 300, "warmup steps")
 tf.flags.DEFINE_integer("input_size", 224, "input_size")
 tf.flags.DEFINE_integer("output_size", 1000, "output_size")
 tf.flags.DEFINE_integer("filters", 4, "number of filters or channels of the image")
-tf.flags.DEFINE_integer("resnet_layers", "1,1,1,1", "residual blocks in each group")
+tf.flags.DEFINE_string("resnet_layers", "1,1,1,1", "residual blocks in each group")
 tf.flags.DEFINE_string("block_fn", "residual", "choose from residual and bottleneck")
 
 tf.flags.DEFINE_string("optimizer", "rms", "Choose among rms, sgd, and momentum.")
@@ -140,6 +140,7 @@ def model_fn(features, labels, mode, params):
 
 ProfileOptionBuilder = tf.profiler.ProfileOptionBuilder
 def main(unused_argv):
+    del unused_argv
     tf.logging.set_verbosity(tf.logging.INFO)
     print('\nTensorFlow version: ' + str(tf.__version__))
 
@@ -155,7 +156,9 @@ def main(unused_argv):
     
     model_dir = os.path.join(FLAGS.output_dir, "model_dir",
                 '-'.join(
-                    [str(i) for i in[FLAGS.input_size, FLAGS.output_size, FLAGS.nodes_per_layer, FLAGS.batch_size]]))
+                    ["nblock_" + str(FLAGS.resnet_layers), "filtersz_" + str(FLAGS.filters), 
+                    "input_" + str(FLAGS.input_size), "output_" + str(FLAGS.output_size),
+                    "bs_" + str(FLAGS.batch_size)]))
 
     if FLAGS.platform == "npu":
         run_config = NPURunConfig(

@@ -8,8 +8,10 @@ import tensorflow as tf
 import time
 import numpy as np
 import os
+import resnet_model
 
-tf.flags.DEFINE_string("platform", "gpu", "which computing platform we are using, GPU/NPU")
+# whether use NPU or not
+tf.flags.DEFINE_string("platform", "gpu", "which computing platform we are using")
 tf.flags.DEFINE_string("output_dir", "./", "All the output data should be written into this folder.")
 tf.flags.DEFINE_integer("iterations", 100,
                         "Number of iterations per training loop.")
@@ -21,25 +23,26 @@ tf.flags.DEFINE_integer("batch_size", 128,
                         "Mini-batch size for the training.")
 tf.flags.DEFINE_string("mode", "train", "train or inference.")
 tf.flags.DEFINE_integer("warmup_steps", 300, "warmup steps")
-tf.flags.DEFINE_integer("input_size", 1000, "input_size")
-tf.flags.DEFINE_integer("output_size", 100, "output_size")
-tf.flags.DEFINE_integer("layer", 4, "number of hidden layers")
-tf.flags.DEFINE_integer("nodes_per_layer", 1024, "number of nodes per hidden layer")
+tf.flags.DEFINE_integer("input_size", 224, "input_size")
+tf.flags.DEFINE_integer("output_size", 1000, "output_size")
+tf.flags.DEFINE_integer("filters", 4, "number of filters or channels of the image")
+tf.flags.DEFINE_integer("resnet_layers", "1,1,1,1", "residual blocks in each group")
+tf.flags.DEFINE_string("block_fn", "residual", "choose from residual and bottleneck")
 
 tf.flags.DEFINE_string("optimizer", "rms", "Choose among rms, sgd, and momentum.")
 tf.flags.DEFINE_string("data_type", "float32", "")
 
 FLAGS = tf.flags.FLAGS
 
-input_size = FLAGS.input_size
+input_size = [FLAGS.input_size, FLAGS.input_size, 3]
 output_size = FLAGS.output_size
 batch_size = FLAGS.batch_size
 train_steps = FLAGS.train_steps
-layer = FLAGS.layer
-nodes_per_layer = FLAGS.nodes_per_layer
+resnet_layers = [int(i) for i in FLAGS.resnet_layers.split(',')]
+block_fn = FLAGS.block_fn
+filters = FLAGS.filters
 
 if FLAGS.platform == "npu":
-    FLAGS.use_npu = True
     from npu_bridge.estimator import npu_ops
     from npu_bridge.estimator.npu.npu_config import NPURunConfig
     from npu_bridge.estimator.npu.npu_estimator import NPUEstimator
@@ -55,51 +58,47 @@ def get_input_fn(input_size, output_size):
     Randomly genernate input dataset and labels 
     '''
     def input_fn(params):
+        batch_size = params['batch_size']
         if FLAGS.data_type == 'float32':
-            tf.logging.info("Using float32.")
-            inputs = tf.random_uniform(
-                [batch_size, input_size], minval=-0.5, maxval=0.5, dtype=tf.float32)
+            dataset = tf.data.Dataset.range(1).repeat().map(
+                lambda x: (tf.cast(tf.constant(np.random.random_sample(input_size).astype(np.float32), tf.float32), tf.float32),
+                        tf.constant(np.random.randint(output_size, size=(1,))[0], tf.int32)))
         elif FLAGS.data_type == 'float16':
-            tf.logging.info("Using float16.")
-            inputs = tf.random_uniform(
-                [batch_size, input_size], minval=-0.5, maxval=0.5, dtype=tf.float16)
+            dataset = tf.data.Dataset.range(1).repeat().map(
+                lambda x: (tf.cast(tf.constant(np.random.random_sample(input_size).astype(np.float32), tf.float16), tf.float16),
+                        tf.constant(np.random.randint(output_size, size=(1,))[0], tf.int32)))
+        
+        dataset = dataset.prefetch(batch_size)
 
-        labels = tf.random_uniform(
-            [batch_size], maxval=output_size, dtype=tf.int32) 
+        dataset = dataset.apply(
+            tf.contrib.data.batch_and_drop_remainder(batch_size))
 
-        return inputs, labels
+        dataset = dataset.prefetch(4)     # Prefetch overlaps in-feed with training
+        images, labels = dataset.make_one_shot_iterator().get_next()
+        return images, labels
     return input_fn
 
 def model_fn(features, labels, mode, params):
+    output_size = params['output_size']
     net = features
 
     if FLAGS.data_type == 'float32':
-        for i in range(layer):
-            net = tf.layers.dense(
-                inputs=net,
-                units=nodes_per_layer,
-                name='fc_' + str(i),
-                activation=tf.nn.relu)
-        net = tf.layers.dense(
-            inputs=net,
-            units=output_size,
-            name='fc_' + str(layer),
-            activation=None)
-  
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        predictions = {
-            'logits': net,
-        }
-        return tf.estimator.EstimatorSpec(
-                mode=mode,
-                predictions=predictions,
-            )
-  
+        network = resnet_model.resnet_v1(
+            resnet_layers,
+            block_fn,
+            num_classes=output_size,
+            data_format='channels_last',
+            filters=filters)
+
+        net = network(inputs=features, is_training=True)
+        
     onehot_labels=tf.one_hot(labels, output_size)
     loss = tf.losses.softmax_cross_entropy(
         onehot_labels=onehot_labels, logits=net)
-  
-    learning_rate = 0.1
+
+    learning_rate = tf.train.exponential_decay(
+        0.1, tf.train.get_global_step(), 25000, 0.97)
+    
     if opt == 'sgd':
         tf.logging.info('Using SGD optimizer')
         optimizer = tf.train.GradientDescentOptimizer(
@@ -115,36 +114,17 @@ def model_fn(features, labels, mode, params):
             RMSPROP_DECAY,
             momentum=RMSPROP_MOMENTUM,
             epsilon=RMSPROP_EPSILON)
-    if FLAGS.use_npu:
+    if FLAGS.platform == "npu":
         optimizer = NPUDistributedOptimizer(optimizer)
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-    
-    tf.logging.info('enter tf.profiler function')
-    
+
     param_stats = tf.profiler.profile(
         tf.get_default_graph(),
         options=ProfileOptionBuilder.trainable_variables_parameter())
     fl_stats = tf.profiler.profile(
         tf.get_default_graph(),
         options=tf.profiler.ProfileOptionBuilder.float_operation())
-
-    # eval mode
-    # if mode == tf.estimator.ModeKeys.EVAL:
-    #     def metric_fn(labels, logits):
-    #         predictions = tf.argmax(logits, axis=1)
-    #         top_1_accuracy = tf.metrics.accuracy(labels, predictions)
-    #         return {
-    #             'Top-1 accuracy': top_1_accuracy,
-    #         }
-    #     eval_metrics = (metric_fn, [labels, net])
-
-    #     return tf.estimator.EstimatorSpec(
-    #         mode=mode,
-    #         loss=loss,
-    #         train_op=train_op,
-    #         host_call=None,
-    #         eval_metrics=eval_metrics)
 
     # print loss every n iterations
     train_hook = tf.estimator.LoggingTensorHook(
@@ -172,11 +152,10 @@ def main(unused_argv):
         # with `log_divice_placement=True` we can see all the operations and tensors are mapped to which device
         session_config = tf.ConfigProto(allow_soft_placement=True, 
             log_device_placement=True, gpu_options=tf.GPUOptions(allow_growth=True))
+    
     model_dir = os.path.join(FLAGS.output_dir, "model_dir",
                 '-'.join(
-                    ["layer_" + str(FLAGS.layer), "nodes_" + str(FLAGS.nodes_per_layer), 
-                    "input_" + str(FLAGS.input_size), "output_" + str(FLAGS.output_size),
-                    "bs_" + str(FLAGS.batch_size)]))
+                    [str(i) for i in[FLAGS.input_size, FLAGS.output_size, FLAGS.nodes_per_layer, FLAGS.batch_size]]))
 
     if FLAGS.platform == "npu":
         run_config = NPURunConfig(
@@ -224,15 +203,6 @@ def main(unused_argv):
     print("Total time: " + str(total_time))
     #tf.logging.info("global_step/sec: %s" % global_step_per_sec)
     #tf.logging.info("examples/sec: %s" % example_per_sec)
-    flops = batch_size * (nodes_per_layer * nodes_per_layer * (layer-1) + 
-            nodes_per_layer * input_size + nodes_per_layer * output_size)
-    if FLAGS.mode == 'train':
-        # Forward 2x and Backward 4x
-        flops *= 6 * train_steps
-    else:
-        flops *= 2 * train_steps
-    print('FLOPS: {}'.format(flops))
-    print('TFLOPS: {}'.format(flops / total_time / 1e12))
 
 if __name__ == '__main__':
     tf.app.run()

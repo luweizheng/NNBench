@@ -11,19 +11,19 @@ platform="gpu"
 outpath=${currentDir}/../output/fc_${platform}_${data_type}
 mkdir -p $outpath
 
-for layer in 16 32 64 128 256
+for layer in 64 # 32 64 128 256
 do
-for nodes_per_layer in 128 256 512 1024 2048 4096 8192
+for nodes_per_layer in 2048 # 128 256 512 1024 2048 4096 8192
 do
-for input in 256 512 1024
+for input in 256 #512 1024
 do
-for output in 256 512 1024
+for output in 256 #512 1024
 do
-for batch_size in 64 128 256 512 1024 2048 4096 8192
+for batch_size in 2048 # 64 128 256 512 1024 2048 4096 8192
 do
 
 name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}
-echo $name
+echo "processing model: " $name
 
 python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \
             --nodes_per_layer=${nodes_per_layer} --input_size=${input} --output_size=${output} \

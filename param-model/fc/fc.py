@@ -39,7 +39,6 @@ layer = FLAGS.layer
 nodes_per_layer = FLAGS.nodes_per_layer
 
 if FLAGS.platform == "npu":
-    FLAGS.use_npu = True
     from npu_bridge.estimator import npu_ops
     from npu_bridge.estimator.npu.npu_config import NPURunConfig
     from npu_bridge.estimator.npu.npu_estimator import NPUEstimator
@@ -115,7 +114,7 @@ def model_fn(features, labels, mode, params):
             RMSPROP_DECAY,
             momentum=RMSPROP_MOMENTUM,
             epsilon=RMSPROP_EPSILON)
-    if FLAGS.use_npu:
+    if FLAGS.platform == "npu":
         optimizer = NPUDistributedOptimizer(optimizer)
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())

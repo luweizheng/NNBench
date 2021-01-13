@@ -23,48 +23,37 @@ export ASCEND_OPP_PATH=${ascend_toolkit_path}/opp
 export HCCL_CONNECT_TIMEOUT=600
 
 # user env
-export JOB_ID=123456789
+export JOB_ID=${currtime}
 
-device_id="0"
-export DEVICE_ID=0
+device_id="6"
+export DEVICE_ID=${device_id}
 
 device_count="1"
 export RANK_SIZE=1
 export RANK_INDEX=0
 
-pod_name=$3
 export RANK_ID="localhost-"currtime
 
 DEVICE_INDEX=$(( DEVICE_ID + RANK_INDEX * 8))
 export DEVICE_INDEX=${DEVICE_INDEX}
 
-data_type="float32"
 platform="npu"
-outpath=${currentDir}/../output/fc_${platform}_${data_type}
+name="mlp-mnist-"${platform}
+datasetpath="/home/luweizheng/ml/mnist_910"
+bs=64
+outpath=${currentDir}/../output/mlp_${platform}_mnist
 mkdir -p $outpath
 
-for layer in 64 # 32 64 128 256
-do
-for nodes_per_layer in 2048 # 128 256 512 1024 2048 4096 8192
-do
-for input in 256 #512 1024
-do
-for output in 256 #512 1024
-do
-for batch_size in 2048 # 64 128 256 512 1024 2048 4096 8192
-do
+echo "running model: " ${name}
 
-name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}
-echo "running model: " $name
-
-time python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \
-            --nodes_per_layer=${nodes_per_layer} --input_size=${input} --output_size=${output} \
-            --batch_size=${batch_size} --train_steps=100 \
-            --output_dir=${outpath} \
-            1>$outpath/$name.out 2>$outpath/$name.err
-
-done
-done
-done
-done
-done
+start=`date +%s`
+python mnist.py --platform=${platform} \
+              --batch_size=${bs} \
+              --output_dir=${outpath} \
+              --train_dir=${datasetpath}"/train-images-idx3-ubyte" \
+              --train_label=${datasetpath}"/train-labels-idx1-ubyte" \
+              1>$outpath/$name.out 2>$outpath/$name.err
+wait
+end=`date +%s`
+runtime=$((end-start))
+echo "total run time: "${runtime}

@@ -1,5 +1,6 @@
 *tmp*
 param-model/output/*
+real-world-model/output/*
 
 # Ascend genernated files
 param-model/*/kernel_meta/*
@@ -7,6 +8,7 @@ param-model/*/check_result.tf.json
 param-model/fc/fusion_result.json
 param-model/cnn/fusion_result.json
 
+*.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

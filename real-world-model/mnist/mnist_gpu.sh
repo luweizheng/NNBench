@@ -15,9 +15,14 @@ mkdir -p $outpath
 
 echo "running model: " ${name}
 
+start=`date +%s`
 time python mnist.py --platform=${platform} \
               --batch_size=${bs} \
               --output_dir=${outpath} \
               --train_dir=${datasetpath}"/train-images-idx3-ubyte" \
               --train_label=${datasetpath}"/train-labels-idx1-ubyte" \
               1>$outpath/$name.out 2>$outpath/$name.err
+
+end=`date +%s`
+runtime=$((end-start))
+echo "total run time: "${runtime}

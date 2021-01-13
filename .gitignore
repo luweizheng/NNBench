@@ -1,5 +1,8 @@
 *tmp*
+
+# training output files
 param-model/output/*
+real-world-model/output/
 
 # Ascend genernated files
 param-model/*/kernel_meta/*

@@ -27,7 +27,7 @@ for bs in 64 # 128 256 512 1024
 do
 
 name=block_${nblock}-filtersz_${filters}-input_${input_size}-output_${output_size}-bs_${bs}
-echo "processing model: " $name
+echo "running model: " $name
 
 # skip the experiment if its performance report exists
 grep "examples/sec" $outpath/$name.err > tmp

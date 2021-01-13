@@ -191,7 +191,7 @@ def main(unused_argv):
             model_dir=model_dir,
             session_config=session_config,
             save_checkpoints_secs=None,
-            precision_mode="allow_mix_precision"
+            precision_mode="must_keep_origin_dtype"
         )
 
     if FLAGS.platform == "npu":

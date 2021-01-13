@@ -25,7 +25,7 @@ export HCCL_CONNECT_TIMEOUT=600
 # user env
 export JOB_ID=${currtime}
 
-device_id="7"
+device_id="6"
 export DEVICE_ID=${device_id}
 
 device_count="1"
@@ -39,28 +39,31 @@ export DEVICE_INDEX=${DEVICE_INDEX}
 
 data_type="float32"
 platform="npu"
+cnnblock='bottleneck'
 outpath=${currentDir}/../output/cnn_${platform}_${data_type}
 mkdir -p $outpath
 
-for layer in 64 # 32 64 128 256
+for filters in 16 #32 64
 do
-for nodes_per_layer in 2048 # 128 256 512 1024 2048 4096 8192
+for nblock in 1 #2 3 4 5 6 7 8
 do
-for input in 256 #512 1024
+for input_size in 224 #200 300
 do
-for output in 256 #512 1024
-do
-for batch_size in 2048 # 64 128 256 512 1024 2048 4096 8192
+for output_size in 1000 #1000 1500
+do 
+for bs in 64 # 128 256 512 1024
 do
 
-name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}
+name=block_${nblock}-filtersz_${filters}-input_${input_size}-output_${output_size}-bs_${bs}
 echo "processing model: " $name
 
-python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \
-            --nodes_per_layer=${nodes_per_layer} --input_size=${input} --output_size=${output} \
-            --batch_size=${batch_size} --train_steps=100 \
-            --output_dir=${outpath} \
-            1>$outpath/$name.out 2>$outpath/$name.err
+python cnn.py --platform=${platform} --data_type=${data_type} \
+              --block_fn=${cnnblock} --filters=${filters} \
+              --resnet_layers=${nblock},${nblock},${nblock},${nblock}\
+              --input_size=${input_size} --output_size=${output_size}\
+              --batch_size=${bs} --train_steps=300 \
+              --output_dir=${outpath} \
+              1>$outpath/$name.out 2>$outpath/$name.err
 
 done
 done

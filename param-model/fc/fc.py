@@ -173,7 +173,7 @@ def main(unused_argv):
         # with `log_divice_placement=True` we can see all the operations and tensors are mapped to which device
         session_config = tf.ConfigProto(allow_soft_placement=True, 
             log_device_placement=False, gpu_options=tf.GPUOptions(allow_growth=True))
-    model_dir = os.path.join(FLAGS.output_dir, "model_dir",
+    model_dir = os.path.join(FLAGS.output_dir, "model_dir", "fc",
                 '-'.join(
                     ["layer_" + str(FLAGS.layer), "nodes_" + str(FLAGS.nodes_per_layer), 
                     "input_" + str(FLAGS.input_size), "output_" + str(FLAGS.output_size),

@@ -22,7 +22,7 @@ do
 for batch_size in 2048 # 64 128 256 512 1024 2048 4096 8192
 do
 
-name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}
+name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}_${data_type}
 echo "running model: " $name
 
 python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \

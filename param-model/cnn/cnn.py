@@ -154,7 +154,7 @@ def main(unused_argv):
         session_config = tf.ConfigProto(allow_soft_placement=True, 
             log_device_placement=True, gpu_options=tf.GPUOptions(allow_growth=True))
     
-    model_dir = os.path.join(FLAGS.output_dir, "model_dir",
+    model_dir = os.path.join(FLAGS.output_dir, "model_dir", "cnn"
                 '-'.join(
                     ["nblock_" + str(FLAGS.resnet_layers), "filtersz_" + str(FLAGS.filters), 
                     "input_" + str(FLAGS.input_size), "output_" + str(FLAGS.output_size),

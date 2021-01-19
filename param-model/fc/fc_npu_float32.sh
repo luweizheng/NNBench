@@ -55,9 +55,9 @@ for batch_size in 2048 # 64 128 256 512 1024 2048 4096 8192
 do
 
 name=layer_${layer}-nodes_${nodes_per_layer}-input_${input}-output_${output}-bs_${batch_size}
-echo "processing model: " $name
+echo "running model: " $name
 
-python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \
+time python fc.py --platform=${platform} --data_type=${data_type} --layer=${layer} \
             --nodes_per_layer=${nodes_per_layer} --input_size=${input} --output_size=${output} \
             --batch_size=${batch_size} --train_steps=100 \
             --output_dir=${outpath} \

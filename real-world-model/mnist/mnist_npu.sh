@@ -37,36 +37,23 @@ export RANK_ID="localhost-"currtime
 DEVICE_INDEX=$(( DEVICE_ID + RANK_INDEX * 8))
 export DEVICE_INDEX=${DEVICE_INDEX}
 
-data_type="float32"
 platform="npu"
-cnnblock='bottleneck'
-outpath=${currentDir}/../output/cnn_${platform}_${data_type}
+name="mlp-mnist-"${platform}
+datasetpath="/home/luweizheng/ml/mnist_910"
+bs=64
+outpath=${currentDir}/../output/mlp_${platform}_mnist
 mkdir -p $outpath
 
-for filters in 16 #32 64
-do
-for nblock in 1 #2 3 4 5 6 7 8
-do
-for input_size in 224 #200 300
-do
-for output_size in 1000 #1000 1500
-do 
-for bs in 64 # 128 256 512 1024
-do
+echo "running model: " ${name}
 
-name=block_${nblock}-filtersz_${filters}-input_${input_size}-output_${output_size}-bs_${bs}
-echo "processing model: " $name
-
-python cnn.py --platform=${platform} --data_type=${data_type} \
-              --block_fn=${cnnblock} --filters=${filters} \
-              --resnet_layers=${nblock},${nblock},${nblock},${nblock}\
-              --input_size=${input_size} --output_size=${output_size}\
-              --batch_size=${bs} --train_steps=300 \
+start=`date +%s`
+python mnist.py --platform=${platform} \
+              --batch_size=${bs} \
               --output_dir=${outpath} \
+              --train_dir=${datasetpath}"/train-images-idx3-ubyte" \
+              --train_label=${datasetpath}"/train-labels-idx1-ubyte" \
               1>$outpath/$name.out 2>$outpath/$name.err
-
-done
-done
-done
-done
-done
+wait
+end=`date +%s`
+runtime=$((end-start))
+echo "total run time: "${runtime}

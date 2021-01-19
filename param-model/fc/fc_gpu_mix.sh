@@ -6,7 +6,7 @@ source activate tf1.15
 currentDir=$(cd "$(dirname "$0")";pwd)
 currtime=`date +%Y%m%d%H%M%S`
 
-data_type="float32"
+data_type="mix"
 platform="gpu"
 outpath=${currentDir}/../output/fc_${platform}_${data_type}
 mkdir -p $outpath

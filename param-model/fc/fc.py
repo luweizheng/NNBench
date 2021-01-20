@@ -190,8 +190,7 @@ def main(unused_argv):
         run_config = tf.estimator.RunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None,
-            precision_mode="must_keep_origin_dtype"
+            save_checkpoints_secs=None
         )
 
     if FLAGS.platform == "npu":

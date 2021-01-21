@@ -27,7 +27,7 @@ tf.flags.DEFINE_integer("layer", 4, "number of hidden layers")
 tf.flags.DEFINE_integer("nodes_per_layer", 1024, "number of nodes per hidden layer")
 
 tf.flags.DEFINE_string("optimizer", "rms", "Choose among rms, sgd, and momentum.")
-tf.flags.DEFINE_string("data_type", "float32", "")
+tf.flags.DEFINE_string("data_type", "float32", "float32 or mix precision")
 
 FLAGS = tf.flags.FLAGS
 
@@ -54,14 +54,9 @@ def get_input_fn(input_size, output_size):
     Randomly genernate input dataset and labels 
     '''
     def input_fn(params):
-        if FLAGS.data_type == 'float32':
-            tf.logging.info("Using float32.")
-            inputs = tf.random_uniform(
-                [batch_size, input_size], minval=-0.5, maxval=0.5, dtype=tf.float32)
-        elif FLAGS.data_type == 'float16':
-            tf.logging.info("Using float16.")
-            inputs = tf.random_uniform(
-                [batch_size, input_size], minval=-0.5, maxval=0.5, dtype=tf.float16)
+        tf.logging.info("Using float32.")
+        inputs = tf.random_uniform(
+            [batch_size, input_size], minval=-0.5, maxval=0.5, dtype=tf.float32)
 
         labels = tf.random_uniform(
             [batch_size], maxval=output_size, dtype=tf.int32) 
@@ -71,19 +66,17 @@ def get_input_fn(input_size, output_size):
 
 def model_fn(features, labels, mode, params):
     net = features
-
-    if FLAGS.data_type == 'float32':
-        for i in range(layer):
-            net = tf.layers.dense(
-                inputs=net,
-                units=nodes_per_layer,
-                name='fc_' + str(i),
-                activation=tf.nn.relu)
+    for i in range(layer):
         net = tf.layers.dense(
             inputs=net,
-            units=output_size,
-            name='fc_' + str(layer),
-            activation=None)
+            units=nodes_per_layer,
+            name='fc_' + str(i),
+            activation=tf.nn.relu)
+    net = tf.layers.dense(
+        inputs=net,
+        units=output_size,
+        name='fc_' + str(layer),
+        activation=None)
   
     if mode == tf.estimator.ModeKeys.PREDICT:
         predictions = {
@@ -116,6 +109,10 @@ def model_fn(features, labels, mode, params):
             epsilon=RMSPROP_EPSILON)
     if FLAGS.platform == "npu":
         optimizer = NPUDistributedOptimizer(optimizer)
+    elif FLAGS.platform == "gpu" :
+        # mixed precision
+        if FLAGS.data_type == "mix":
+            optimizer = tf.train.experimental.enable_mixed_precision_graph_rewrite(optimizer)
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     
@@ -186,7 +183,10 @@ def main(unused_argv):
             save_checkpoints_secs=None,
             precision_mode="allow_mix_precision"
         )
-    else:
+    elif FLAGS.platform == "gpu":
+        # mixed precision
+        if FLAGS.data_type == "mix":
+            session_config.graph_options.rewrite_options.auto_mixed_precision=1
         run_config = tf.estimator.RunConfig(
             model_dir=model_dir,
             session_config=session_config,

@@ -1,4 +1,6 @@
 *tmp*
+
+# training output files
 param-model/output/*
 real-world-model/output/*
 

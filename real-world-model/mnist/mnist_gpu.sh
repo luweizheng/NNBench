@@ -8,7 +8,7 @@ currtime=`date +%Y%m%d%H%M%S`
 
 platform="gpu"
 name="mlp-mnist-"${platform}
-datasetpath=/home/u20200002/Datasets/MNIST
+datasetpath="/disk/Datasets/MNIST"
 bs=64
 outpath=${currentDir}/../output/mlp_${platform}_mnist
 mkdir -p $outpath

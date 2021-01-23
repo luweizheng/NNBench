@@ -4,95 +4,54 @@ python version of the CIFAR-10 dataset downloaded from
 https://www.cs.toronto.edu/~kriz/cifar.html.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import argparse
-import _pickle as cPickle
-import os
-
-import tarfile
-#from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-
-CIFAR_FILENAME = 'cifar-10-python.tar.gz'
-CIFAR_DOWNLOAD_URL = 'https://www.cs.toronto.edu/~kriz/' + CIFAR_FILENAME
-CIFAR_LOCAL_FOLDER = 'cifar-10-batches-py'
-
-
-def download_and_extract(data_dir):
-  # download CIFAR-10 if not already downloaded.
-  # tf.contrib.learn.datasets.base.maybe_download(CIFAR_FILENAME, data_dir, CIFAR_DOWNLOAD_URL)
-  tarfile.open(os.path.join(data_dir, CIFAR_FILENAME),
-               'r:gz').extractall(data_dir)
-
-
+import argparse
+import pickle
+import os
+ 
+def unpickle(file):
+    with open(file,'rb') as f:
+      dict = pickle.load(f,encoding='bytes')
+    return dict
+ 
 def _int64_feature(value):
-  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
+	  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 def _bytes_feature(value):
-  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[str(value)]))
-
-
-def _get_file_names():
-  """Returns the file names expected to exist in the input_dir."""
-  file_names = {}
-  file_names['train'] = ['data_batch_%d' % i for i in range(1, 6)]
-  file_names['validation'] = ['data_batch_5']
-  file_names['eval'] = ['test_batch']
-  return file_names
-
-
-def read_pickle_from_file(filename):
-  with tf.gfile.Open(filename, 'r') as f:
-    data_dict = cPickle.load(f)
-  return data_dict
-
-
-def convert_to_tfrecord(input_files, output_file):
-  """Converts a file to TFRecords."""
-  print('Generating %s' % output_file)
-  with tf.python_io.TFRecordWriter(output_file) as record_writer:
-    for input_file in input_files:
-      data_dict = read_pickle_from_file(input_file)
-      data = data_dict['data']
-      labels = data_dict['labels']
-      num_entries_in_batch = len(labels)
-      for i in range(num_entries_in_batch):
-        example = tf.train.Example(features=tf.train.Features(
-            feature={
-                'image': _bytes_feature(data[i].tobytes()),
-                'label': _int64_feature(labels[i])
-            }))
-        record_writer.write(example.SerializeToString())
+	  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+ 
+ 
+def restore(inputfilename, outputfilename):
+    dict = unpickle(inputfilename)
+    # dict: include [b'batch_label', b'labels', b'data', b'filenames']
+    # we just choose labels and data. And we choose restore it by int64
+    # labels:[10000,1]
+    labels= dict[b'labels']
+    #images:[10000,3072]
+    images = dict[b'data']
+    writer = tf.python_io.TFRecordWriter(outputfilename)
+    for i in range(10000):
+        image_raw = images[i].tostring()
+        example = tf.train.Example(features=tf.train.Features(feature={
+          'raw_image':_bytes_feature(image_raw),
+          'label':_int64_feature(labels[i])
+        }))
+        writer.write(example.SerializeToString())
 
 
 def main(data_dir):
-  # print('Download from {} and extract.'.format(CIFAR_DOWNLOAD_URL))
-  download_and_extract(data_dir)
-  file_names = _get_file_names()
-  input_dir = os.path.join(data_dir, CIFAR_LOCAL_FOLDER)
-  for mode, files in file_names.items():
-    input_files = [os.path.join(input_dir, f) for f in files]
-    output_file = os.path.join(data_dir, mode + '.tfrecords')
-    try:
-      os.remove(output_file)
-    except OSError:
-      pass
-    # Convert to tf.train.Example and write the to TFRecords.
-    convert_to_tfrecord(input_files, output_file)
-  print('Done!')
-
+    # train_filenames = [os.path.join(data_dir,'data_batch_%d' %i) for i in range(1,6)]
+    # for filename in train_filenames:
+    #     restore(filename,filename+'.tfrecord')
+    eval_filename = os.path.join(data_dir,'test_batch')
+    restore(eval_filename, os.path.join(data_dir, "eval.tfrecord"))
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--data-dir',
-      type=str,
-      default='',
-      help='Directory to download and extract CIFAR-10 to.')
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--data-dir',
+        type=str,
+        default='',
+        help='Directory to download and extract CIFAR-10 to.')
 
-  args = parser.parse_args()
-  main(args.data_dir)
+    args = parser.parse_args()
+    main(args.data_dir)

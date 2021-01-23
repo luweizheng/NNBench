@@ -10,6 +10,10 @@ param-model/*/check_result.tf.json
 param-model/fc/fusion_result.json
 param-model/cnn/fusion_result.json
 
+# analysis
+analysis/.ipynb_checkpoints/
+analysis/data/*
+
 *.json
 # Byte-compiled / optimized / DLL files
 __pycache__/

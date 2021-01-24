@@ -2,6 +2,27 @@ from argparse import ArgumentParser
 import os
 import tensorflow as tf
 
+tf.flags.DEFINE_string("platform", "gpu", "which computing platform we are using, GPU/NPU")
+tf.flags.DEFINE_string("output_dir", "./", "All the output data should be written into this folder.")
+tf.flags.DEFINE_integer("iterations", 100,
+                        "Number of iterations per training loop.")
+tf.flags.DEFINE_integer("num_shards", 8, "Number of shards (accelerator chips).")
+
+tf.flags.DEFINE_integer("epochs", 100, "Total number of epochs.")
+tf.flags.DEFINE_integer("train_batch_size", 128,
+                        "Mini-batch size for the training.")
+tf.flags.DEFINE_integer("eval_batch_size", 128,
+                        "Mini-batch size for the evaluating.")
+tf.flags.DEFINE_string("mode", "train", "train or inference.")
+tf.flags.DEFINE_float("dropout_rate", 0.4, "dropout rate")
+tf.flags.DEFINE_float("learning_rate", 0.0007, "learning rate")
+tf.flags.DEFINE_string("train_dir", "./train", "train data directory.")
+tf.flags.DEFINE_string("eval_dir", "./eval", "evaluate data directory.")
+tf.flags.DEFINE_string("optimizer", "rms", "Choose among rms, sgd, and momentum.")
+tf.flags.DEFINE_string("data_type", "float32", "float32 or mix precision")
+
+FLAGS = tf.flags.FLAGS
+model_dir = FLAGS.output_dir
 
 def cnn_model(features, mode, params):
 
@@ -30,10 +51,6 @@ def cnn_model(features, mode, params):
         pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=(2, 2), strides=2, padding='same')
         norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm1')
 
-        if params.print_shape:
-            # to check the expected shape
-            print("------- Conv_1 ----------", pool1.get_shape())
-
     with tf.name_scope('Conv_2'):
         # Convolutional Layer #2 and Pooling Layer #2
         conv2 = tf.layers.conv2d(
@@ -48,10 +65,6 @@ def cnn_model(features, mode, params):
 
         pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=(2, 2), strides=2, padding='same')
         norm2 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm2')
-
-        if params.print_shape:
-            # to check the expected shape
-            print("------- Conv_2 ----------", pool2.get_shape())
 
     with tf.name_scope('Conv_3'):
         # Convolutional Layer #3 and Pooling Layer #3
@@ -68,10 +81,6 @@ def cnn_model(features, mode, params):
         pool3 = tf.layers.max_pooling2d(inputs=conv3, pool_size=(2, 2), strides=2, padding='same')
         norm3 = tf.nn.lrn(pool3, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm3')
 
-        if params.print_shape:
-            # to check the expected shape
-            print("------- Conv_3 ----------", pool3.get_shape())
-
     with tf.name_scope('Conv_4'):
         # Convolutional Layer #4 and Pooling Layer #4
         conv4 = tf.layers.conv2d(
@@ -87,16 +96,12 @@ def cnn_model(features, mode, params):
         norm4 = tf.nn.lrn(conv4, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm4')
         pool4 = tf.layers.max_pooling2d(inputs=norm4, pool_size=(2, 2), strides=1, padding='same')
 
-        if params.print_shape:
-            # to check the expected shape
-            print("------- Conv_4 ----------", pool4.get_shape())
-
 
     with tf.name_scope('Dense_Dropout'):
         # Dense Layer
         pool_flat = tf.contrib.layers.flatten(pool4)
         dense = tf.layers.dense(inputs=pool_flat, units=1024, activation=tf.nn.relu, trainable=is_training)
-        dropout = tf.layers.dropout(inputs=dense, rate=params.dropout_rate, training=is_training)
+        dropout = tf.layers.dropout(inputs=dense, rate=FLAGS.dropout_rate, training=is_training)
         tf.summary.histogram('fully_connected_layers/dropout', dropout)
 
 
@@ -138,17 +143,20 @@ def cnn_model_fn(features, labels, mode, params):
 
     # Configure the Training Op (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
-        #tf.summary.scalar('accuracy', accuracy[0])
-        tf.summary.scalar('train_accuracy', train_accuracy)
-        train_op = tf.contrib.layers.optimize_loss(
+        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        train_op = optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step(),
-            learning_rate=params.learning_rate,
-            learning_rate_decay_fn=lambda lr, step: tf.train.exponential_decay(params.learning_rate, tf.train.get_global_step(), 780, 0.94, staircase=True),
-            optimizer='Adam')
+            global_step=tf.train.get_global_step()
+            
+            )
     else:
         train_op = None
-
+    tf.summary.scalar('train_accuracy', train_accuracy)
+    summary_op = tf.summary.merge_all()
+    summary_train_hook = tf.train.SummarySaverHook(
+        save_steps=10,
+        output_dir=model_dir,
+        summary_op=summary_op)
     # EstimatorSpec fully defines the model to be run by an Estimator.
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -156,12 +164,11 @@ def cnn_model_fn(features, labels, mode, params):
         train_op=train_op,
         eval_metric_ops=eval_metric, # A dict of name/value pairs specifying the metrics that will be calculated when the model runs in EVAL mode.
         predictions=predictions,
-        export_outputs=export_outputs)
+        export_outputs=export_outputs,
+        training_hooks=[summary_train_hook])
 
-def data_input_fn(filenames, batch_size=1000, shuffle=False):
-
+def data_input_fn(filenames, batch_size=128, shuffle=False):
     def _parser(serialized_example):
-
         features = tf.parse_single_example(
             serialized_example,
             features={
@@ -193,63 +200,59 @@ def data_input_fn(filenames, batch_size=1000, shuffle=False):
         return features, labels
     return _input_fn
 
-if __name__ == '__main__':
-
+def main(unused_argv):
+    del unused_argv
     tf.logging.set_verbosity(tf.logging.INFO)
+    print('\nTensorFlow version: ' + str(tf.__version__))
 
+    if FLAGS.platform == "npu":
+        session_config = tf.ConfigProto()
+    elif FLAGS.platform == "gpu":
+        # with `allow_soft_placement=True` TensorFlow will automatically help us choose a device in case the specific one does not exist
+        # with `log_divice_placement=True` we can see all the operations and tensors are mapped to which device
+        session_config = tf.ConfigProto(
+            allow_soft_placement=True, 
+            log_device_placement=True, 
+            gpu_options=tf.GPUOptions(allow_growth=True)
+        )
 
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--data-directory",
-        default='/home/u20200002/Datasets/CIFAR10/TFRecord',
-        help='Directory where TFRecord images are stored'
-    )
-    parser.add_argument(
-        '--model-directory',
-        default='/home/u20200002/jupyterlab/hpc/nnbench/real-world-model/output/cnn_gpu_cifar10',
-        help='Directory where model summaries and checkpoints are stored'
-    )
-    args = parser.parse_args()
+    if FLAGS.platform == "npu":
+        run_config = NPURunConfig(
+            model_dir=model_dir,
+            session_config=session_config,
+            save_checkpoints_secs=10,
+            save_summary_steps=10,
+            precision_mode="allow_mix_precision"
+        )
+    elif FLAGS.platform == "gpu":
+        # mixed precision
+        if FLAGS.data_type == "mix":
+            session_config.graph_options.rewrite_options.auto_mixed_precision=1
+        run_config = tf.estimator.RunConfig(
+            model_dir=model_dir,
+            session_config=session_config,
+            save_checkpoints_steps=10,
+            save_summary_steps=10
+        )
 
-    run_config = tf.contrib.learn.RunConfig(
-        model_dir=args.model_directory,
-        save_checkpoints_steps=20,
-        save_summary_steps=20)
+    if FLAGS.platform == "npu":
+        estimator = NPUEstimator(
+            model_fn=cnn_model_fn,
+            model_dir=model_dir,
+            config=run_config
+        )
+    else:
+        estimator = tf.estimator.Estimator(
+            model_fn=cnn_model_fn,
+            model_dir=model_dir,
+            config=run_config
+        )
 
-    hparams = tf.contrib.training.HParams(
-        learning_rate=0.0007,
-        dropout_rate=0.4,
-        data_directory=os.path.expanduser(args.data_directory),
-        print_shape=False)
+    train_filenames = [os.path.join(FLAGS.train_dir,'data_batch_%d.tfrecord' %i) for i in range(1,6)]
+    train_input_fn = data_input_fn(train_filenames, batch_size=FLAGS.train_batch_size)
+    eval_input_fn = data_input_fn(os.path.join(FLAGS.eval_dir, 'eval.tfrecord'), batch_size=FLAGS.eval_batch_size)
 
+    estimator.train(input_fn=train_input_fn, steps=FLAGS.train_batch_size * FLAGS.epochs)
 
-    mnist_classifier = tf.estimator.Estimator(
-        model_fn=cnn_model_fn,
-        config=run_config,
-        params=hparams
-    )
-
-
-    train_batch_size = 256 #256
-    eval_batch_size = 64 #128
-    train_steps = 40000 // train_batch_size # len dataset // batch size
-    train_filenames = [os.path.join(hparams.data_directory,'data_batch_%d.tfrecord' %i) for i in range(1,6)]
-    train_input_fn = data_input_fn(train_filenames, batch_size=train_batch_size)
-    eval_input_fn = data_input_fn(os.path.join(hparams.data_directory, 'eval.tfrecord'), batch_size=eval_batch_size)
-
-    experiment = tf.contrib.learn.Experiment(
-        mnist_classifier,
-        train_input_fn=train_input_fn,
-        eval_input_fn=eval_input_fn,
-        train_steps=train_steps * 30,
-        eval_steps=100,
-        min_eval_frequency=1
-    )
-
-    experiment.train_and_evaluate()
-
-    # Export for serving
-    # mnist_classifier.export_savedmodel(
-    #     os.path.join(hparams.data_directory, 'serving'),
-    #     serving_input_receiver_fn
-    # )
+if __name__ == '__main__':
+    tf.app.run()

@@ -223,7 +223,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             with amp.scale_loss(loss, optimizer) as scaled_loss:     
                 scaled_loss.backward()
         else:
-            optimizer.backward()
+            loss.backward()
         optimizer.step()
 
         output = output.float()

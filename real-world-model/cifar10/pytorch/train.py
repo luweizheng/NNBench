@@ -162,12 +162,14 @@ def main():
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        train(train_loader, model, criterion, optimizer, epoch)
+        loss_avg, example_per_sec = train(train_loader, model, criterion, optimizer, epoch)
+        writer.add_scalar('loss/train', loss_avg, epoch)
+        writer.add_scalar('example_per_sec/train', example_per_sec, epoch)
         lr_scheduler.step()
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion)
-        writer.add_scalar('top1_acc/train', prec1, epoch)
+        writer.add_scalar('top1_acc/val', prec1, epoch)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -206,15 +208,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        target = target.to(torch.int32).to(DEVICE)
-        input_var = input.to(DEVICE)
-        target_var = target
+        input = input.to(DEVICE, non_blocking=True)
+        target = target.to(torch.int32).to(DEVICE, non_blocking=True)
         if args.half:
-            input_var = input_var.half()
+            input = input.half()
 
         # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+        output = model(input)
+        loss = criterion(output, target)
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -245,6 +246,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, top1=top1))
+    
+    example_per_sec = args.batch_size/batch_time.avg
+    print("batch_size:", args.batch_size, 'Time: {:.3f}'.format(batch_time.avg), '* EPS@all {:.3f}'.format(
+            example_per_sec))
+    return losses.avg, example_per_sec
 
 
 def validate(val_loader, model, criterion):
@@ -261,22 +267,21 @@ def validate(val_loader, model, criterion):
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
-            target = target.to(torch.int32).to(DEVICE)
-            input_var = input.to(DEVICE)
-            target_var = target.to(DEVICE)
+            target = target.to(torch.int32).to(DEVICE, non_blocking=True)
+            input = input.to(DEVICE, non_blocking=True)
 
             if args.half:
-                input_var = input_var.half()
+                input = input.half()
 
             # compute output
-            output = model(input_var)
-            loss = criterion(output, target_var)
+            output = model(input)
+            loss = criterion(output, target)
 
-            # output = output.float()
-            # loss = loss.float()
+            output = output.float()
+            loss = loss.float()
 
             # measure accuracy and record loss
-            prec1 = accuracy(output, target_var)[0]
+            prec1 = accuracy(output, target)[0]
             losses.update(loss.item(), input.size(0))
             top1.update(prec1.item(), input.size(0))
 

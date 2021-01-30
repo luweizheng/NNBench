@@ -1,0 +1,21 @@
+#!/bin/bash
+
+source activate torch16
+
+currentDir=$(cd "$(dirname "$0")";pwd)
+currtime=`date +%Y%m%d%H%M%S`
+
+arch="resnet32"
+platform="gpu"
+save_dir=${currentDir}"/"${arch}_${platform}"/"${currtime}
+name="cifar10-"${arch}
+
+echo "save dir:"${save_dir}
+echo "running "${name}
+
+python3 -u train.py  --arch=${arch} \
+                --platform=${platform} \
+                --amp="no" \
+                --workers=32 \
+                --data="~/Datasets/CIFAR10/" \
+                --save-dir=${save_dir}

@@ -71,7 +71,7 @@ DEVICE = "npu:0"
 if args.platform == "npu":
     DEVICE = "npu:0"
 elif args.platform == "gpu":
-    DEVICE = "gpu:0"
+    DEVICE = "cuda:0"
 
 
 def main():
@@ -209,7 +209,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
 
         input = input.to(DEVICE, non_blocking=True)
-        target = target.to(torch.int32).to(DEVICE, non_blocking=True)
+        if args.platform == 'npu':
+            target = target.to(torch.int32).to(DEVICE, non_blocking=True)
+        elif args.platform == 'gpu':
+            target = target.to(DEVICE, non_blocking=True)
         if args.half:
             input = input.half()
 
@@ -267,8 +270,11 @@ def validate(val_loader, model, criterion):
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
-            target = target.to(torch.int32).to(DEVICE, non_blocking=True)
             input = input.to(DEVICE, non_blocking=True)
+            if args.platform == 'npu':
+                target = target.to(torch.int32).to(DEVICE, non_blocking=True)
+            elif args.platform == 'gpu':
+                target = target.to(DEVICE, non_blocking=True)
 
             if args.half:
                 input = input.half()

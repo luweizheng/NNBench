@@ -4,7 +4,7 @@ import numpy as np
 import json
 import sys
 
-root = '../output/'
+root = '../param-model/output/'
 
 if len(sys.argv) > 1:
   path = root + sys.argv[1]

@@ -37,21 +37,21 @@ export RANK_ID="localhost-"currtime
 DEVICE_INDEX=$(( DEVICE_ID + RANK_INDEX * 8))
 export DEVICE_INDEX=${DEVICE_INDEX}
 
-data_type="float32"
+data_type="mix"
 platform="npu"
 cnnblock='bottleneck'
 outpath=${currentDir}/../output/cnn_${platform}_${data_type}
 mkdir -p $outpath
 
-for filters in 32 64
+for filters in 64 #32 64
 do
-for nblock in 1 2 # 3 4 5
+for nblock in 2 #2 3 4 5 6 7 8
 do
 for input_size in 224 #200 300
 do
 for output_size in 1000 #1000 1500
 do 
-for bs in 128 256 # 512 1024
+for bs in 64 128 256 # 512 1024
 do
 
 name=block_${nblock}-filtersz_${filters}-input_${input_size}-output_${output_size}-bs_${bs}
@@ -59,7 +59,7 @@ echo "running model: " $name
 
 python3 cnn.py --platform=${platform} --data_type=${data_type} \
               --block_fn=${cnnblock} --filters=${filters} \
-              --resnet_layers=${nblock},${nblock},${nblock},${nblock} \
+              --resnet_layers=${nblock},${nblock},${nblock},${nblock}\
               --input_size=${input_size} --output_size=${output_size}\
               --batch_size=${bs} --train_steps=300 \
               --output_dir=${outpath} \

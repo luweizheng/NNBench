@@ -168,11 +168,12 @@ def main(unused_argv):
             precision_mode="allow_mix_precision"
         )
     else:
+        # allow mixed precision
+        # session_config.graph_options.rewrite_options.auto_mixed_precision=1
         run_config = tf.estimator.RunConfig(
             model_dir=model_dir,
             session_config=session_config,
-            save_checkpoints_secs=None,
-            precision_mode="allow_mix_precision"
+            save_checkpoints_secs=None
         )
 
     if FLAGS.platform == "npu":
@@ -194,7 +195,8 @@ def main(unused_argv):
         tf.logging.info('Running estimator.train()')
         estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.warmup_steps)
         start = time.time()
-        estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.train_steps)
+        profiler_hook = tf.estimator.ProfilerHook(save_steps=5, output_dir=model_dir)
+        estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.train_steps, hooks=[profiler_hook])
     else:
         tf.logging.info('Running estimator.predict()')
         estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=1)

@@ -47,6 +47,7 @@ if FLAGS.platform == "npu":
     from npu_bridge.estimator.npu.npu_config import NPURunConfig
     from npu_bridge.estimator.npu.npu_estimator import NPUEstimator
     from npu_bridge.estimator.npu.npu_optimizer import NPUDistributedOptimizer
+    from npu_bridge.estimator.npu.npu_config import ProfilingConfig
 
 opt = FLAGS.optimizer
 RMSPROP_DECAY = 0.9                # Decay term for RMSProp.
@@ -165,7 +166,7 @@ def main(unused_argv):
             model_dir=model_dir,
             session_config=session_config,
             save_checkpoints_secs=None,
-            precision_mode="allow_mix_precision"
+            # precision_mode="allow_mix_precision"
         )
     else:
         # allow mixed precision
@@ -195,8 +196,8 @@ def main(unused_argv):
         tf.logging.info('Running estimator.train()')
         estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.warmup_steps)
         start = time.time()
-        profiler_hook = tf.estimator.ProfilerHook(save_steps=5, output_dir=model_dir)
-        estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.train_steps, hooks=[profiler_hook])
+        with tf.contrib.tfprof.ProfileContext(model_dir, dump_steps=[10]) as pctx:
+            estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=FLAGS.train_steps)
     else:
         tf.logging.info('Running estimator.predict()')
         estimator.train(input_fn=get_input_fn(input_size, output_size), max_steps=1)

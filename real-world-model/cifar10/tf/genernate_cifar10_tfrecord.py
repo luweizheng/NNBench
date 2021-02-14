@@ -39,9 +39,9 @@ def restore(inputfilename, outputfilename):
 
 
 def main(data_dir):
-    # train_filenames = [os.path.join(data_dir,'data_batch_%d' %i) for i in range(1,6)]
-    # for filename in train_filenames:
-    #     restore(filename,filename+'.tfrecord')
+    train_filenames = [os.path.join(data_dir,'data_batch_%d' %i) for i in range(1,6)]
+    for filename in train_filenames:
+        restore(filename,filename+'.tfrecord')
     eval_filename = os.path.join(data_dir,'test_batch')
     restore(eval_filename, os.path.join(data_dir, "eval.tfrecord"))
 
